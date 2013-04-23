@@ -1,0 +1,38 @@
+#!/bin/bash
+#	checknet-0.0.1	Written by Kyle Walker	kwalker@redhat.com
+#	Uses sosreports to grab relevant active NIC information for a system.
+        
+if [ $# == 0 ]; then
+	for i in `grep 'Link.*yes' sos_commands/networking/ethtool_eth* -l | cut -d "_" -f 3`; do echo $i - `grep driver sos_commands/networking/ethtool_-i_$i`; cat sos_commands/networking/ethtool_-S_$i | awk '/error|drop|discard|collision/ {if($NF != 0) print $0}'; done
+fi
+case "$1" in
+-v) for i in `grep 'Link.*yes' sos_commands/networking/ethtool_eth* -l | cut -d "_" -f 3`; do echo $i; cat sos_commands/networking/ethtool_-S_$i | awk '/error|drop|discard|collision/ {if($NF == 0) print $0}'; done
+;;
+-a) for i in `grep 'Link.*yes' sos_commands/networking/ethtool_eth* -l | cut -d "_" -f 3`; do echo $i; cat sos_commands/networking/ethtool_-S_$i | awk '{print $0}'; done
+;;
+-history) for i in `ls var/log/sa/sar* sar*`; do echo $i; awk '/rxerr/,/^$/' $i | awk 'BEGIN {first=1} /IFACE/ {if(first==1) print $0; first++} !/IFACE|^ *$|bond/ {if($3+$4+$5+$6+$7+$8+$9+$10+$11 > 0)print $0}'; done
+;;
+-history-count) for i in `ls var/log/sa/sar* sar*`; do echo -en "$i\t\t"; awk '/rxerr/,/^$/' $i | awk 'BEGIN {count=0} !/IFACE|^ *$|bond/ {if($3+$4+$5+$6+$7+$8+$9+$10+$11 > 0)count++} END {print "Total number of issues: "count}'; done
+;;
+-d) for i in eth{0..6}; do echo $i; for b in `grep bus-info sos_commands/networking/ethtool_-i_$i | cut -d ' ' -f 2 | cut -d ':' -f 2-3`; do grep $b lspci -m 1; done; done
+;;
+-cluster) for i in `ls -d */`; do for b in `grep 'Link.*yes' $i/sos_commands/networking/ethtool_eth* -l | cut -d "_" -f 3 2>/dev/null`; do echo $i - $b - `grep driver $i/sos_commands/networking/ethtool_-i_$b`; cat $i/sos_commands/networking/ethtool_-S_$b | awk '/[rx|tx]_error|drop|discard|collision/ {if($NF != 0) print $0}'; done; done
+;;
+-h) echo "checknet: Should be run from the root directory of a sosreport; except -cluster"
+	echo "Usage: checknet [option]"
+	echo -e "\tOptions:"
+	echo -e "\t\tNo options - Outputs a number of NIC-level errors and active driver in use"
+	echo -e "\t\t-h\t\tThis message"
+	echo -e "\t\t-a\t\tReturns all entries in active NIC interfaces"
+	echo -e "\t\t-v\t\tReturns the entries above that do have 0 values"
+	echo -e "\t\t-d\t\tReturns the hardware as reported by lspci output"
+	echo -e "\t\t-cluster\tRun from a directory that has multiple sosreports. Output is the same type of no options output but for multiple sosreports at once"
+	echo -e "\t\t-history\tParses the existing sar data files for any instances of network issues"
+	echo -e "\t\t-history-count\tSame process as -history, but outputs only counts of issues"
+;;
+esac
+
+
+
+#Included the entry below if having the customer generate new output:
+#for i in `ifconfig | grep -Eve '^ .*$' -e '^ *$' -e lo | cut -d ':' -f 1`; do if [ `ethtool $i 2>/dev/null| grep Link | awk '{print $NF}'` == "yes" ]; then echo $i - `ethtool -i $i | grep driver`; ethtool -S $i | awk '/error|drop|discard|collision/ {if($NF != 0) print $0}'; fi ; done
