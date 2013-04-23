@@ -1,8 +1,18 @@
 #!/bin/bash
-#Written very quickly by Kyle Walker kwalker@redhat.com
+# sarreport: Currently returns relevant data prior to a reboot event.
+# Written very quickly by Kyle Walker kwalker@redhat.com
 
 time=`grep RESTART -i $1 | cut -d':' -f 1`
-if [[ $2 == '-d' ]]; then
+if [[ $time != "" ]]; then
+	let time2=$time-1; 
+	if [[ `echo $time2 | cut -c 1` -eq 0 ]]; then 
+		time2="0"$time2
+	fi
+	awk 'BEGIN {triggered=0} /RESTART/ {triggered++} /00:00/ {if(triggered==0) print $0} /^'"$time"'|^'"$time2"'/,/^$/ {if(triggered==0) print $0}' $1
+	exit
+fi
+case $2 in
+-d)
 	if [[ `echo $time | cut -c 1` -eq 0 ]]; then 
 		time2="0"$time1
 	else
@@ -10,17 +20,13 @@ if [[ $2 == '-d' ]]; then
 	fi
 	echo time = $time
 	echo time2 = $time2
-elif [[ $2 == '-B' ]]; then
+	;;
+-B)
 	let time2=$time-$3; 
 	if [[ `echo $time2 | cut -c 1` -eq 0 ]]; then 
 		time2="0"$time2
 	fi
 	#awk '/00:00/ {print $0} /^'"$time"'|^'"$time2"'/,/^$/ {print $0}' $1
 	awk 'BEGIN {triggered=0} /RESTART/ {triggered++} /00:00/ {if(triggered==0) print $0} /^'"$time"'|^'"$time2"'/,/^$/ {if(triggered==0) print $0}' $1
-elif [[ $time != "" ]]; then
-	let time2=$time-1; 
-	if [[ `echo $time2 | cut -c 1` -eq 0 ]]; then 
-		time2="0"$time2
-	fi
-	awk 'BEGIN {triggered=0} /RESTART/ {triggered++} /00:00/ {if(triggered==0) print $0} /^'"$time"'|^'"$time2"'/,/^$/ {if(triggered==0) print $0}' $1
-fi
+	;;
+esac

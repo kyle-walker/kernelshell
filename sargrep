@@ -3,7 +3,7 @@
 # Should allow you to grab sections of data from a sar file
 
 if [ $# -eq 0 ]; then
-	echo -e "\tUsage: data <file> <pattern> <max> <min>"
+	echo -e "\tUsage: data <file> <pattern> <max> <min> [-h]"
 elif [[ -z $4 ]]; then
 	set $4= 0
 elif [[ -z $3 ]]; then
