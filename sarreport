@@ -2,21 +2,17 @@
 # sarreport: Currently returns relevant data prior to a reboot event.
 # Written very quickly by Kyle Walker kwalker@redhat.com
 
-time1[0]=("`grep RESTART -i $1 | cut -d':' -f 1`")
+time1=(`grep RESTART -i $1 | cut -d':' -f 1`)
 #=("`grep RESTART -i $1 | cut -d':' -f 1`")
 restarts=`grep RESTART -i $1 -c`
 selected=0
-echo ${time1[@]}
-echo $restarts
-echo ${time1[$selected]}
 if [[ ${time1[$selected]} != "" ]]; then
 	echo -e "There are $restarts reboot events in this sar file, now showing number 1\n"
 	let time2=${time1[$selected]}-1; 
-	if [[ `echo $time2 | cut -c 1` -eq 0 ]]; then 
+	if [ $time2 -lt 10 ]; then 
 		time2="0"$time2
 	fi
-	awk 'BEGIN {triggered=0} /RESTART/ {triggered++} /00:00/ {if(triggered==0) print $0} /^'"${time1[$selected]}"'|^'"$time2"'/,/^$/ {if(triggered==0) print $0}' $1
-	echo WORKING
+	awk 'BEGIN {triggered=0} /RESTART/ {triggered++} /00:00/ {if(triggered==0) print $0} /^'"$time2"'|^'"${time1[$selected]}"'/,/^$/ {if(triggered==0) print $0}' $1
 	exit
 fi
 case $2 in
