@@ -8,12 +8,12 @@ checksysknown() {
 	touch ~/knownsystems
 		echo 'First run, initializing system listings'
 	fi
+	if [ ! -d $PWD/work/ ]; then 
+		mkdir $PWD/work/
+	fi
 	x=$(grep $SYSHOSTNAME ~/knownsystems -c)
 	if [ $x -gt 0 ]; then
 		KNOWN=1
-		if [ ! -d $PWD/work/ ]; then 
-			mkdir $PWD/work/
-		fi
 		if [[ ! -e $PWD/work/report.history || `grep $SYSHOSTNAME $PWD/work/report.history -c 2>/dev/null` -eq 0 ]]; then
 			grep $SYSHOSTNAME ~/knownsystems >> $PWD/work/report.history
 		fi
