@@ -59,42 +59,33 @@ case $2 in
 	if [ $time2 -lt 10 ]; then 
 		time2="0"$time2
 	fi
-	awk 'BEGIN {
-			triggered=0
-			if("'$sysall'" == 1)
-				sysall=1
-			syssub=0
-		}
-		 /RESTART/ {
+	awk     'BEGIN { triggered=0; if("'$sysall'" == 1) sysall=1; syssub=0 }
+		/RESTART/ {
 			triggered++
 		}
-		/00:00/	{
-			if(triggered==0) print $0
-		}
-		 /CPU|kbmemfree|ldavg/,/^$/ {
-			if(triggered==0)
-			{
-				 if(sysall==1)
-				 {
-					if(syssub==0 && $0~/CPU/)
-					{
+		/iowait|kbmemfree|ldavg/,/^$/ {
+			if(triggered==0) {
+				 if(sysall==1) {
+					if(syssub==0 && $0~/iowait/) {
 						syssub++
 						print
 					}
-					if(syssub==1 && $0~/^'"${time1[$selected]}"'|^'"$time2"'|Average|^$/ && $0~/all/)
-					{
+					if(syssub==1 && $0~/^'"${time1[$selected]}"'|^'"$time2"'|Average|^$/ && $0~/all/) {
 						print
 					}
-					if($0~/Average/)
+					else if(syssub==1 && $0~/^$/) {
 						syssub=0
-					}
-					if(syssub==0 && $0~/^'"${time1[$selected]}"'|^'"$time2"'|Average|^$|kbmemfree|ldavg/)
-					{
 						print
 					}
-				else
-				{
-					if($0~/^'"${time1[$selected]}"'|^'"$time2"'|Average|^$|CPU|kbmemfree|ldavg/)
+					else if(syssub==0 && $0~/^'"${time1[$selected]}"'|^'"$time2"'|^$|kbmemfree|ldavg/) {
+						print
+					}
+					if( syssub==0 && $0~/Average:/ ) {
+						print
+					}
+				}
+				else {
+					if($0~/^'"${time1[$selected]}"'|^'"$time2"'|Average|^$|iowait|kbmemfree|ldavg/)
 						print
 				}
 			}
