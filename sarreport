@@ -1,27 +1,138 @@
-#!/usr/bin/python
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
+#!/bin/bash
+# sarreport: Currently returns relevant data prior to a reboot event.
+# Written very quickly by Kyle Walker kwalker@redhat.com
 
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
+getopt_outputs=$(getopt -o aB:dhm: -n "sarreport" -- "$@");
 
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software
-# Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+if [[ $# -eq 0  || $1 == "-h" ]]; then
+	echo "sarreport: Returns relevant sar data prior to a restart"
+        echo "Usage: sarreport [options] <sarfile>"
+        echo -e "\tOptions:"
+        echo -e "\t\tNo options - Reports CPU utilization, Memory use, and Load"
+        echo -e "\t\t-d\t\tDebugging information such as the times that are being used for search"
+        echo -e "\t\t-m\t\tSelect restart: Can be used to select a restart event that is not the first"
+        echo -e "\t\t-B [val]\t\tChange the number of hours prior to the reboot to return"
+        echo -e "\t\t-a\t\tReturn all metrics available not just the defaults above"
+        echo -e "\t\t-h\t\tThis message"
+	exit
+fi
+if [ ! -e $BASH_ARGV ]; then
+	echo -e "\tError: File does not exist"
+	exit
+fi 
 
-""" sos entry point. """
+eval set -- "$getopt_outputs"
 
-from sos.sosreport import sosreport, doExitCode
-import sys
+time1=(`grep RESTART -i $BASH_ARGV | cut -d':' -f 1`)
+restarts=`grep RESTART -i $BASH_ARGV -c`
+selected=0
+sysall=1
+hoursprior=1
+runmode=0
 
-if __name__ == '__main__':
-    try:
-        sosreport(sys.argv[1:])
-    except KeyboardInterrupt:
-        doExitCode()
+while true; do
+	case "$1" in
+		-m)
+			shift
+			if [ $1 -le $restarts ]; then
+				let selected=$(($1-1))
+			else
+				echo "Incorrect selection, setting to the first iteration"
+			fi
+			shift
+			;;
+		-a)
+			if [ $runmode==0 ]; then
+				runmode=1
+			else
+				echo "Incompatible option set: -a, -d cannot be used together at this time"
+			fi
+			shift
+			;;
+		-B)
+			shift;
+			if [ -n "$1" ]; then
+				hoursprior=$1
+				shift;
+			fi
+			;;
+		-d)
+			if [ $runmode==0 ]; then
+				runmode=2
+			else
+				echo "Incompatible option set: -a, -d cannot be used together at this time"
+			fi
+			shift;
+			;;
+		--)
+			break
+			;;
+	esac
+done
 
-# vim:ts=4 et sw=4
+let time2=$((10#${time1[$selected]}))-$hoursprior;
+if [ $time2 -le 11 ]; then
+	time2="0"$time2	
+fi
+
+case $runmode in
+2)
+	echo time       = ${time1[$selected]}
+	echo time[@]    = ${time1[@]}
+	echo hoursprior = $hoursprior
+	echo time2      = $time2
+	echo selected   = $selected
+	exit
+	;;
+1)
+	if [ ! $restarts -eq 0 ]; then
+		echo -e "There are $restarts reboot events in this sar file, now showing number $((selected+1))\n"
+		awk 'BEGIN {triggered=0} /RESTART/ {triggered++} /00:00/ {if(triggered==0) print $0} /^'"$time2"'|^'"${time1[$selected]}"'/,/^$/ {if(triggered==0) print $0}' $BASH_ARGV
+	else
+		echo -e "There are $restarts restarts in this sar file\n"
+	fi
+	exit
+	;;
+*)
+	if [ ! $restarts -eq 0 ]; then
+		echo -e "There are $restarts reboot events in this sar file, now showing number $(($selected+1))\n"
+		awk     'BEGIN { triggered=0; if("'$sysall'" == 1) sysall=1; syssub=0 }
+			/RESTART/ {
+				if(triggered=='"$selected"') {
+					print
+				}
+				triggered++
+			}
+			/iowait|kbmemfree|ldavg/,/^$/ {
+				if(triggered=='"$selected"') {
+					 if(sysall==1) {
+						if(syssub==0 && $0~/iowait/) {
+							syssub++
+							print
+						}
+						if(syssub==1 && substr($1,0,2) <= '"${time1[$selected]}"' && substr($1,0,2) >= '"$time2"' && $0~/all/ || $0~/Average|^$/ && $0~/all/) {
+							print
+						}
+						else if(syssub==1 && $0~/^$/) {
+							syssub=0
+							print
+						}
+						else if(syssub==0) {
+							if(substr($1,0,2) <= '"${time1[$selected]}"' && substr($1,0,2) >= '"$time2"')
+								print
+							else if($0~/kbmemfree|ldavg|^$/ || 0~/Average/)
+								print
+						}
+					}
+					else {
+						if($substr($1,0,1) <= '"${time1[$selected]}"' && substr($1,0,1) >= '"$time2"' || $0~/Average|^$|iowait|kbmemfree|ldavg/)
+							print
+					}
+				}
+			}' $BASH_ARGV
+	else
+		echo -e "There are $restarts restarts in this sar file\n"
+	fi
+	exit
+	;;
+esac
