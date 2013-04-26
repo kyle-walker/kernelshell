@@ -1,95 +1,27 @@
-#!/bin/bash
-# sarreport: Currently returns relevant data prior to a reboot event.
-# Written very quickly by Kyle Walker kwalker@redhat.com
-if [ $# -eq 0 ]; then
-	echo "checknet: Should be run from the root directory of a sosreport; except -cluster"
-        echo "Usage: checknet [option]"
-        echo -e "\tOptions:"
-        echo -e "\t\tNo options - Outputs a number of NIC-level errors and active driver in use"
-        echo -e "\t\t-h\t\tThis message"
-	exit
-fi
-if [ ! -e $1 ]; then
-	echo -e "Error: File does not exist"
-	exit
-fi 
-time1=(`grep RESTART -i $1 | cut -d':' -f 1`)
-restarts=`grep RESTART -i $1 -c`
-selected=0
-sysall=1
-case $2 in
--h)
-	echo "checknet: Should be run from the root directory of a sosreport; except -cluster"
-        echo "Usage: checknet [option]"
-        echo -e "\tOptions:"
-        echo -e "\t\tNo options - Outputs a number of NIC-level errors and active driver in use"
-        echo -e "\t\t-h\t\tThis message"
-	exit
-	;;
--d)
-	let time2=${time1[$selected]}-1; 
-	if [ $time2 -lt 10 ]; then 
-		time2="0"${time1[$selected]}
-	fi
-	echo time    = ${time1[$selected]}
-	echo time[@] = ${time1[@]}
-	echo time2   = $time2
-	exit
-	;;
--B)
-	let time2=$time1-$3; 
-	if [[ `echo $time2 | cut -c 1` -eq 0 ]]; then 
-		time2="0"$time2
-	fi
-	awk 'BEGIN {triggered=0} /RESTART/ {triggered++} /00:00/ {if(triggered==0) print $0} /^'"$time1"'|^'"$time2"'/,/^$/ {if(triggered==0) print $0}' $1
-	exit
-	;;
--a)
-	echo -e "There are $restarts reboot events in this sar file, now showing number 1\n"
-	let time2=${time1[$selected]}-1; 
-	if [ $time2 -lt 10 ]; then 
-		time2="0"$time2
-	fi
-	awk 'BEGIN {triggered=0} /RESTART/ {triggered++} /00:00/ {if(triggered==0) print $0} /^'"$time2"'|^'"${time1[$selected]}"'/,/^$/ {if(triggered==0) print $0}' $1
-	exit
-	;;
-*)
-	echo -e "There are $restarts reboot events in this sar file, now showing number 1\n"
-	let time2=${time1[$selected]}-1; 
-	if [ $time2 -lt 10 ]; then 
-		time2="0"$time2
-	fi
-	awk     'BEGIN { triggered=0; if("'$sysall'" == 1) sysall=1; syssub=0 }
-		/RESTART/ {
-			triggered++
-		}
-		/iowait|kbmemfree|ldavg/,/^$/ {
-			if(triggered==0) {
-				 if(sysall==1) {
-					if(syssub==0 && $0~/iowait/) {
-						syssub++
-						print
-					}
-					if(syssub==1 && $0~/^'"${time1[$selected]}"'|^'"$time2"'|Average|^$/ && $0~/all/) {
-						print
-					}
-					else if(syssub==1 && $0~/^$/) {
-						syssub=0
-						print
-					}
-					else if(syssub==0 && $0~/^'"${time1[$selected]}"'|^'"$time2"'|^$|kbmemfree|ldavg/) {
-						print
-					}
-					if( syssub==0 && $0~/Average:/ ) {
-						print
-					}
-				}
-				else {
-					if($0~/^'"${time1[$selected]}"'|^'"$time2"'|Average|^$|iowait|kbmemfree|ldavg/)
-						print
-				}
-			}
-		}' $1
-	exit
-	;;
-esac
+#!/usr/bin/python
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+
+""" sos entry point. """
+
+from sos.sosreport import sosreport, doExitCode
+import sys
+
+if __name__ == '__main__':
+    try:
+        sosreport(sys.argv[1:])
+    except KeyboardInterrupt:
+        doExitCode()
+
+# vim:ts=4 et sw=4
