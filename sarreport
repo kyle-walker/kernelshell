@@ -2,7 +2,7 @@
 # sarreport: Currently returns relevant data prior to a reboot event.
 # Written very quickly by Kyle Walker kwalker@redhat.com
 
-getopt_outputs=$(getopt -o aB:dhm: -n "sarreport" -- "$@");
+getopt_outputs=$(getopt -o aB:dhcCm: -n "sarreport" -- "$@");
 
 if [[ $# -eq 0  || $1 == "-h" ]]; then
 	echo "sarreport: Returns relevant sar data prior to a restart"
@@ -11,8 +11,10 @@ if [[ $# -eq 0  || $1 == "-h" ]]; then
         echo -e "\t\tNo options - Reports CPU utilization, Memory use, and Load"
         echo -e "\t\t-d\t\tDebugging information such as the times that are being used for search"
         echo -e "\t\t-m\t\tSelect restart: Can be used to select a restart event that is not the first"
-        echo -e "\t\t-B [val]\t\tChange the number of hours prior to the reboot to return"
+        echo -e "\t\t-B [val]\tChange the number of hours prior to the reboot to return"
         echo -e "\t\t-a\t\tReturn all metrics available not just the defaults above"
+        echo -e "\t\t-c\t\tShort CPU output: only displays \"all\" entries"
+        echo -e "\t\t-C\t\tFull CPU output: displays all CPU entries"
         echo -e "\t\t-h\t\tThis message"
 	exit
 fi
@@ -23,7 +25,11 @@ fi
 
 eval set -- "$getopt_outputs"
 
-time1=(`grep RESTART -i $BASH_ARGV | cut -d':' -f 1`)
+if [ ! `grep RESTART -i $BASH_ARGV -c` -eq 0 ]; then
+	time1=(`grep RESTART -i $BASH_ARGV | cut -d':' -f 1`)
+else
+	time1=`tail -3 $BASH_ARGV | head -1 | cut -d ':' -f 1`
+fi
 restarts=`grep RESTART -i $BASH_ARGV -c`
 selected=0
 sysall=1
@@ -56,6 +62,14 @@ while true; do
 				shift;
 			fi
 			;;
+		-c)
+			sysall=1
+			shift
+			;;
+		-C)
+			sysall=0
+			shift
+			;;
 		-d)
 			if [ $runmode==0 ]; then
 				runmode=2
@@ -71,9 +85,9 @@ while true; do
 done
 
 let time2=$((10#${time1[$selected]}))-$hoursprior;
-if [ $time2 -le 11 ]; then
-	time2="0"$time2	
-fi
+#if [ $time2 -le 11 ]; then
+#	time2="0"$time2	
+#fi
 
 case $runmode in
 2)
@@ -86,8 +100,29 @@ case $runmode in
 	;;
 1)
 	if [ ! $restarts -eq 0 ]; then
-		echo -e "There are $restarts reboot events in this sar file, now showing number $((selected+1))\n"
-		awk 'BEGIN {triggered=0} /RESTART/ {triggered++} /00:00/ {if(triggered==0) print $0} /^'"$time2"'|^'"${time1[$selected]}"'/,/^$/ {if(triggered==0) print $0}' $BASH_ARGV
+		echo -e "There are $restarts reboot events in this sar file, now showing number $((selected+1))"
+		awk 'BEGIN { 
+			triggered=0
+			if("'$sysall'" == 1) sysall=1; else sysall=0
+			selecter='"$selected"'
+			syssub=0
+			upperLim='"${time1[$selected]}"'
+			lowerLim='"$time2"'
+			if(length(lowerLim)<2) lowerLim="0"lowerLim
+		} 
+		/RESTART/ {
+			if(triggered==0) print
+			triggered++
+		} 
+		/00:00/,/^$/ {
+			if(triggered==0) {
+				if($1 >= lowerLim || $1~/^00:00/)
+					print $0
+			}
+		}
+		/^$/ {
+			if(triggered==0) print
+		}' $BASH_ARGV
 	else
 		echo -e "There are $restarts restarts in this sar file\n"
 	fi
@@ -96,21 +131,21 @@ case $runmode in
 *)
 	if [ ! $restarts -eq 0 ]; then
 		echo -e "There are $restarts reboot events in this sar file, now showing number $(($selected+1))\n"
-		awk     'BEGIN { triggered=0; if("'$sysall'" == 1) sysall=1; syssub=0 }
+		awk     'BEGIN { triggered=0; if("'$sysall'" == 1) sysall=1;else sysall=0; selecter='"$selected"'; syssub=0; upperLim='"${time1[$selected]}"'; lowerLim='"$time2"'; if(length(lowerLim)<2) lowerLim="0"lowerLim}
 			/RESTART/ {
-				if(triggered=='"$selected"') {
+				if(triggered==selecter) {
 					print
 				}
 				triggered++
 			}
 			/iowait|kbmemfree|ldavg/,/^$/ {
-				if(triggered=='"$selected"') {
-					 if(sysall==1) {
+				if(triggered==selecter) {
+					if(sysall==1) {
 						if(syssub==0 && $0~/iowait/) {
 							syssub++
 							print
 						}
-						if(syssub==1 && substr($1,0,2) <= '"${time1[$selected]}"' && substr($1,0,2) >= '"$time2"' && $0~/all/ || $0~/Average|^$/ && $0~/all/) {
+						if(syssub==1 && substr($1,0,2) <= upperLim && substr($1,0,2) >= lowerLim && $0~/all/ || $0~/Average|^$/ && $0~/all/) {
 							print
 						}
 						else if(syssub==1 && $0~/^$/) {
@@ -118,15 +153,30 @@ case $runmode in
 							print
 						}
 						else if(syssub==0) {
-							if(substr($1,0,2) <= '"${time1[$selected]}"' && substr($1,0,2) >= '"$time2"')
+							if(substr($1,0,2) <= upperLim && substr($1,0,2) >= lowerLim)
 								print
 							else if($0~/kbmemfree|ldavg|^$/ || 0~/Average/)
 								print
 						}
 					}
 					else {
-						if($substr($1,0,1) <= '"${time1[$selected]}"' && substr($1,0,1) >= '"$time2"' || $0~/Average|^$|iowait|kbmemfree|ldavg/)
+						if(syssub==0 && $0~/iowait/) {
+							syssub++
 							print
+						}
+						if(syssub==1 && substr($1,0,2) <= upperLim && substr($1,0,2) >= lowerLim || $0~/Average|^$/) {
+							print
+						}
+						else if(syssub==1 && $0~/^$/) {
+							syssub=0
+							print
+						}
+						else if(syssub==0) {
+							if(substr($1,0,2) <= upperLim && substr($1,0,2) >= lowerLim)
+								print
+							else if($0~/kbmemfree|ldavg|^$/ || 0~/Average/)
+								print
+						}	
 					}
 				}
 			}' $BASH_ARGV
