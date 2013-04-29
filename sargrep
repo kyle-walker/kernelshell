@@ -21,4 +21,8 @@ elif [[ $5 == '-h' ]]; then
 		exit
 	fi
 fi
-awk 'BEGIN {instances = 0; max = '"$4"'; min = '"$3"'} /'"$2"'/,/^$/ {if(instances < max && instances >= min) print $0; if($0 == "") instances++}' $1
+if [ $5 == '-s' ]; then
+	awk 'BEGIN {instances = 0; max = '"$4"'; min = '"$3"'} /'"$2"'/,/^$/ {if(instances < max && instances >= min) {if($0~/'"$2"'/ || $2~/all/) print $0}; if($0 == "") instances++}' $1
+else
+	awk 'BEGIN {instances = 0; max = '"$4"'; min = '"$3"'} /'"$2"'/,/^$/ {if(instances < max && instances >= min) print $0; if($0 == "") instances++}' $1
+fi
