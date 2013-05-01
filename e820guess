@@ -21,7 +21,7 @@ def loadMap(inputFile):
 		e820[x] = (int(e820[x][1],16) - int(e820[x][0],16))
 	for x in range(0,len(e820)):
 		e820Final+=e820[x]
-	print e820Final/1024/1024/1024
+	print "Roughly %dGb of RAM" % (e820Final/1024/1024/1024)
 
 
 if len(sys.argv) > 0 and os.path.exists(sys.argv[1]):
