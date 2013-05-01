@@ -5,10 +5,12 @@ import sys, os
 
 def loadMap(inputFile):
 	readData = open(inputFile)
-	e820 = []; e820Final = 0
+	e820 = []; e820Final = 0; nomore = 0
 	for line in readData:
-		if "e820" in line and "usable" in line:
+		if nomore == 0 and ("e820" in line and "usable" in line):
 			e820.append(line)
+		elif "e820" not in line and len(e820) > 0:
+			nomore = 1
 	readData.close()
 
 	for x in range(0,len(e820)):
