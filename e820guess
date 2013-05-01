@@ -1,0 +1,29 @@
+#! /usr/bin/python
+# e820guess - Parses an sosreports e820 memory map fields into a human-readable output
+# Written by Kyle Walker - kwalker@redhat.com
+import sys, os
+
+def loadMap(inputFile):
+	readData = open(inputFile)
+	e820 = []; e820Final = 0
+	for line in readData:
+		if "e820" in line and "usable" in line:
+			e820.append(line)
+	readData.close()
+
+	for x in range(0,len(e820)):
+		e820[x] = e820[x].rstrip()
+		e820[x] = filter(None, e820[x].split(" "))
+		e820[x] = e820[x][6:9]
+		e820[x].remove("-")
+		
+	for x in range(0,len(e820)):
+		e820[x] = (int(e820[x][1],16) - int(e820[x][0],16))
+	for x in range(0,len(e820)):
+		e820Final+=e820[x]
+	print e820Final/1024/1024/1024
+
+
+if len(sys.argv) > 0 and os.path.exists(sys.argv[1]):
+	loadMap(sys.argv[1])
+
