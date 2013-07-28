@@ -155,7 +155,7 @@ case $runmode in
 						else if(syssub==0) {
 							if(substr($1,0,2) <= upperLim && substr($1,0,2) >= lowerLim)
 								print
-							else if($0~/kbmemfree|ldavg|^$/ || 0~/Average/)
+							else if($0~/kbmemfree|ldavg|^$|Average:/)
 								print
 						}
 					}
@@ -164,7 +164,7 @@ case $runmode in
 							syssub++
 							print
 						}
-						if(syssub==1 && substr($1,0,2) <= upperLim && substr($1,0,2) >= lowerLim || $0~/Average|^$/) {
+						if(syssub==1 && substr($1,0,2) <= upperLim && substr($1,0,2) >= lowerLim || $0~/Average:|^$/) {
 							print
 						}
 						else if(syssub==1 && $0~/^$/) {
@@ -174,7 +174,7 @@ case $runmode in
 						else if(syssub==0) {
 							if(substr($1,0,2) <= upperLim && substr($1,0,2) >= lowerLim)
 								print
-							else if($0~/kbmemfree|ldavg|^$/ || 0~/Average/)
+							else if($0~/kbmemfree|ldavg|^$/ || 0~/Average:/)
 								print
 						}	
 					}

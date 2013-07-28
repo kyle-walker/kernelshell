@@ -3,22 +3,73 @@
 #	Uses sosreports to grab relevant active NIC information for a system.
         
 if [ $# == 0 ]; then
-	for i in `grep 'Link.*yes' sos_commands/networking/ethtool_eth* -l | cut -d "_" -f 3`; do echo $i - `grep driver sos_commands/networking/ethtool_-i_$i`; cat sos_commands/networking/ethtool_-S_$i | awk '/error|drop|discard|collision/ {if($NF != 0) print $0}'; done
+	for i in `grep 'Link.*yes' sos_commands/networking/ethtool_eth* -l | cut -d "_" -f 3`; do echo $i - `grep driver sos_commands/networking/ethtool_-i_$i`; cat sos_commands/networking/ethtool_-S_$i | awk '/error|drop|discard|collision/ {if($NF != 0 && $0!~/address.*drop|address_match/) print $0}'; done
 fi
 case "$1" in
 -v) for i in `grep 'Link.*yes' sos_commands/networking/ethtool_eth* -l | cut -d "_" -f 3`; do echo $i; cat sos_commands/networking/ethtool_-S_$i | awk '/error|drop|discard|collision/ {if($NF == 0) print $0}'; done
 ;;
 -a) for i in `grep 'Link.*yes' sos_commands/networking/ethtool_eth* -l | cut -d "_" -f 3`; do echo $i; cat sos_commands/networking/ethtool_-S_$i | awk '{print $0}'; done
 ;;
--history) for i in `ls var/log/sa/sar* sar*`; do echo $i; awk '/rxerr/,/^$/' $i | awk 'BEGIN {first=1} /IFACE/ {if(first==1) print $0; first++} !/IFACE|^ *$|bond/ {if($3+$4+$5+$6+$7+$8+$9+$10+$11 > 0)print $0}'; done
+-history) 
+	shift
+	if [[ $1 == '--max' ]]; then 
+		shift
+		for i in `ls var/log/sa/sar* sar*`
+		do 
+			echo $i
+			awk '/rxerr/,/^$/' $i | awk 'BEGIN {first=1; counter=0; max='"$1"'; if(max>1) max--} /IFACE/ {if(first==1) print $0; first++} !/IFACE|^ *$|bond/ {if($3+$4+$5+$6+$7+$8+$9+$10+$11 > 0){if(counter <= max) {print $0; counter++}}}'
+		done
+	else
+		for i in `ls var/log/sa/sar* sar*`
+		do
+			echo $i
+			awk 'BEGIN {header=0} /rxerr/ {if(header==0){print;header++}} /rxerr/,/^$/ {if($0~/^$/) print; if($0!~/rxerr|bond/){for(x=3;x<=11;x++) {if($x > 0) y++; if(x==11&&y>0) {print $0; y=0}}}}' $i
+		done
+	fi
 ;;
--history-count) for i in `ls var/log/sa/sar* sar*`; do echo -en "$i\t\t"; awk '/rxerr/,/^$/' $i | awk 'BEGIN {count=0} !/IFACE|^ *$|bond/ {if($3+$4+$5+$6+$7+$8+$9+$10+$11 > 0)count++} END {print "Total number of issues: "count}'; done
+-history-count) for i in `ls var/log/sa/sar* sar*`
+		do
+			echo -en "$i\t\t"
+			awk '/rxerr/,/^$/' $i | awk 'BEGIN {count=0} !/IFACE|^ *$|bond/ {if($3+$4+$5+$6+$7+$8+$9+$10+$11 > 0)count++} END {print "Total number of issues: "count}'
+		done | column -t
 ;;
--d) for i in eth{0..6}; do echo $i; for b in `grep bus-info sos_commands/networking/ethtool_-i_$i | cut -d ' ' -f 2 | cut -d ':' -f 2-3`; do grep $b lspci -m 1; done; done
+-d) for i in `cat ifconfig | awk '$0~/^em|^p|^eth/ {print $1}'`; do echo $i; for b in `grep bus-info sos_commands/networking/ethtool_-i_$i | cut -d ' ' -f 2 | cut -d ':' -f 2-3`; do grep $b lspci -m 1; done; done
 ;;
--cluster) for i in `ls -d */`; do for b in `grep 'Link.*yes' $i/sos_commands/networking/ethtool_eth* -l | cut -d "_" -f 3 2>/dev/null`; do echo $i - $b - `grep driver $i/sos_commands/networking/ethtool_-i_$b`; cat $i/sos_commands/networking/ethtool_-S_$b | awk '/[rx|tx]_error|drop|discard|collision/ {if($NF != 0) print $0}'; done; done
+-cluster) for i in `ls -d */`
+		do 
+		if [ -d $i/sos_commands/networking/ ]
+		then
+			for b in `grep 'Link.*yes' $i\sos_commands/networking/ethtool_[ep]* -l | cut -d "_" -f 3 2>/dev/null`
+			do
+				echo $i - $b - `grep driver $i/sos_commands/networking/ethtool_-i_$b 2>/dev/null`
+				cat $i/sos_commands/networking/ethtool_-S_$b | awk '/[rx|tx]_error|drop|discard|collision/ {if($NF != 0) print $0}'
+			done
+		fi
+		done | column -t
 ;;
--h) echo "checknet: Should be run from the root directory of a sosreport; except -cluster"
+-tcpstat) output="Sosreport:\tDropped-pkts\tTotal-pkts\tPercentage-drop\n"
+		for i in `ls -d */`
+		do
+			if [ -f $i/ifconfig ]
+			then 
+				output=$output" "$i" "
+				let x=`awk 'BEGIN {sum=0} /buffer/ {sum+=$1} END {print sum}' $i/sos_commands/networking/netstat_-s`
+				let y=`awk 'BEGIN {pkts=0} /^eth/,/^$/ {if($0~/[RT]X packets/) pkts+=substr($2,9)} END {print pkts}' $i/ifconfig`
+				output=$output$x" "$y" "
+				if [ $y -ne 0 ]
+				then
+					output=$output$(echo "scale=3;$x/$y" | bc)
+				else
+					output=$output"0"
+				fi
+			fi
+			output=$output"\n"
+		done
+		echo -e $output | column -t 
+;;
+-ifup) awk 'BEGIN {printer=0; buffer=""} /^eth|bond/,/^$/ {buffer=buffer"\n"$0; if($0~/^[ \t]*UP/) printer=1; if($0~/^$/ && printer>0) {print buffer; buffer=""; printer=0} else if($0~/^$/) {buffer="";printer=0}}' ifconfig
+;;
+-h) echo "checknet: Should be run from the root directory of a sosreport; except -tcpstat and -cluster"
 	echo "Usage: checknet [option]"
 	echo -e "\tOptions:"
 	echo -e "\t\tNo options - Outputs a number of NIC-level errors and active driver in use"
@@ -27,8 +78,11 @@ case "$1" in
 	echo -e "\t\t-v\t\tReturns the entries above that do have 0 values"
 	echo -e "\t\t-d\t\tReturns the hardware as reported by lspci output"
 	echo -e "\t\t-cluster\tRun from a directory that has multiple sosreports. Output is the same type of no options output but for multiple sosreports at once"
+	echo -e "\t\t-tcpstat\tRun from a directory that has multiple sosreports. Checks the number of buffer [over,under]run drops against total packet transmission"
 	echo -e "\t\t-history\tParses the existing sar data files for any instances of network issues"
+	echo -e "\t\t--max\tReturns the first N instances in the -history output above"
 	echo -e "\t\t-history-count\tSame process as -history, but outputs only counts of issues"
+	echo -e "\t\t-ifup\tReturns output from ifconfig for interfaces that are UP"
 ;;
 esac
 
