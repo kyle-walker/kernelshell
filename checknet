@@ -39,13 +39,15 @@ case "$1" in
 		do 
 		if [ -d $i/sos_commands/networking/ ]
 		then
+			echo $i;
 			for b in `grep 'Link.*yes' $i\sos_commands/networking/ethtool_[ep]* -l | cut -d "_" -f 3 2>/dev/null`
 			do
-				echo $i - $b - `grep driver $i/sos_commands/networking/ethtool_-i_$b 2>/dev/null`
+				echo -e "  "$b - `grep driver $i/sos_commands/networking/ethtool_-i_$b 2>/dev/null`
 				cat $i/sos_commands/networking/ethtool_-S_$b | awk '/[rx|tx]_error|drop|discard|collision/ {if($NF != 0) print $0}'
 			done
+			echo "";
 		fi
-		done | column -t
+		done
 ;;
 -tcpstat) output="Sosreport:\tDropped-pkts\tTotal-pkts\tPercentage-drop\n"
 		for i in `ls -d */`
