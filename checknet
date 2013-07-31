@@ -69,7 +69,7 @@ case "$1" in
 		done
 		echo -e $output | column -t 
 ;;
--ifup) awk 'BEGIN {printer=0; buffer=""} /^eth|bond/,/^$/ {buffer=buffer"\n"$0; if($0~/^[ \t]*UP/) printer=1; if($0~/^$/ && printer>0) {print buffer; buffer=""; printer=0} else if($0~/^$/) {buffer="";printer=0}}' ifconfig
+-ifup) awk 'BEGIN {printer=0; buffer=""} /^eth|^bond|^em|^p[0-9]/,/^$/ {buffer=buffer"\n"$0; if($0~/^[ \t]*UP/) printer=1; if($0~/^$/ && printer>0) {print buffer; buffer=""; printer=0} else if($0~/^$/) {buffer="";printer=0}}' ifconfig
 ;;
 -h) echo "checknet: Should be run from the root directory of a sosreport; except -tcpstat and -cluster"
 	echo "Usage: checknet [option]"
