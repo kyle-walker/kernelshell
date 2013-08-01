@@ -85,8 +85,10 @@ def process_attachments(attachments, files_requested):
     if sosreport_re.search(attachment[0]):
       attachment_uniq_name = attachment[0]
     else:
+      attachment_uniq_name = attachment[0]
       #put the date in front of the file to avoid having to rename gzip files to use them
-      attachment_uniq_name = re.sub('[- :]','',attachment[2]) + "_" + attachment[0]  
+      #attachment_uniq_name = re.sub('[- :]','',attachment[2]) + "_" + attachment[0]  
+      
     # path.exists(attachment[0]) added for compatibility with previous version \
     # which used attachment[0] as a destination filename
     if path.exists("archive/"+attachment_uniq_name) or path.exists("archive/"+attachment[0]):
