@@ -5,6 +5,8 @@
 
 if [ $# -eq 0 ]; then
         echo "ERROR: Please provide a case number!"
+elif [ $HOME == "/root" ]; then
+	echo "WARNING: Running as root, aborting!"
 else
         mkdir ~/sosreports/$1 -p
         cd ~/sosreports/$1
