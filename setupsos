@@ -27,7 +27,7 @@ checksysknown() {
 }
 for i in `ls *.tar* 2>/dev/null | grep -Eve md5`
 do 
-	tar xvf $i
+	tar xf $i
 	if [ ! -d $PWD/archive ]; then
 		mkdir $PWD/archive
 	fi

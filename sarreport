@@ -2,7 +2,7 @@
 # sarreport: Currently returns relevant data prior to a reboot event.
 # Written very quickly by Kyle Walker kwalker@redhat.com
 
-getopt_outputs=$(getopt -o aB:dhcCm: -n "sarreport" -- "$@");
+getopt_outputs=$(getopt -o aB:E:dhcCm: -n "sarreport" -- "$@");
 
 if [[ $# -eq 0  || $1 == "-h" ]]; then
 	echo "sarreport: Returns relevant sar data prior to a restart"
@@ -15,6 +15,7 @@ if [[ $# -eq 0  || $1 == "-h" ]]; then
         echo -e "\t\t-a\t\tReturn all metrics available not just the defaults above"
         echo -e "\t\t-c\t\tShort CPU output: only displays \"all\" entries"
         echo -e "\t\t-C\t\tFull CPU output: displays all CPU entries"
+        echo -e "\t\t-E ##\t\tManually set the end time indicated as ##"
         echo -e "\t\t-h\t\tThis message"
 	exit
 fi
@@ -78,6 +79,16 @@ while true; do
 			fi
 			shift;
 			;;
+		-E)
+			shift
+			if [ $1 -le 24 ]; then
+				time1=$1
+				runmode=4
+			else
+				echo "Incorrect value provided, defaulting to scraped restart event"
+			fi
+			shift;
+			;;
 		--)
 			break
 			;;
@@ -85,11 +96,76 @@ while true; do
 done
 
 let time2=$((10#${time1[$selected]}))-$hoursprior;
-#if [ $time2 -le 11 ]; then
-#	time2="0"$time2	
-#fi
 
 case $runmode in
+4)
+	awk     'BEGIN {x=0;triggered=0; if("'$sysall'" == 1) sysall=1;else sysall=0; syssub=0; upperLim='"${time1[$selected]}"'; lowerLim='"$time2"'; if(length(lowerLim)<2) lowerLim="0"lowerLim}
+		/iowait|kbmemfree|ldavg/,/^$/ {
+			if(sysall==1) {
+				if(syssub==0 && $0~/iowait/) {
+					syssub++
+					x++
+					printer[x] = $0
+				}
+				if(syssub==1 && substr($1,0,2) <= upperLim && substr($1,0,2) >= lowerLim && $0~/all/ || $0~/Average|^$/ && $0~/all/) {
+					x++
+					printer[x] = $0
+				}
+				else if(syssub==1 && $0~/^$/) {
+					syssub=0
+					x++
+					printer[x] = $0
+				}
+				else if(syssub==0) {
+					if(substr($1,0,2) <= upperLim && substr($1,0,2) >= lowerLim) {
+						x++
+						printer[x] = $0
+					}
+					else if($0~/kbmemfree|ldavg|^$|Average:/) {
+						x++
+						printer[x] = $0
+					}
+				}
+			}
+			else {
+				if(syssub==0 && $0~/iowait/) {
+					syssub++
+					x++
+					printer[x] = $0
+				}
+				if(syssub==1 && substr($1,0,2) <= upperLim && substr($1,0,2) >= lowerLim || $0~/Average:|^$/) {
+					x++
+					printer[x] = $0
+				}
+				else if(syssub==1 && $0~/^$/) {
+					syssub=0
+					x++
+					printer[x] = $0
+				}
+				else if(syssub==0) {
+					if(substr($1,0,2) <= upperLim && substr($1,0,2) >= lowerLim) {
+						x++
+						printer[x] = $0
+					}
+					else if($0~/kbmemfree|ldavg|^$/ || 0~/Average:/){
+						x++
+						printer[x] = $0
+					}
+				}	
+			}
+		}
+		END {
+			if(x > 0) {
+				for(i=0; i<=x; i++) {
+					if(printer[i+1] !~/Average|^$/)
+						print printer[i]
+				}
+			}
+			else 
+				exit
+		}' $BASH_ARGV
+	exit
+	;;
 2)
 	echo time       = ${time1[$selected]}
 	echo time[@]    = ${time1[@]}
@@ -128,10 +204,11 @@ case $runmode in
 	fi
 	exit
 	;;
+
 *)
 	if [ ! $restarts -eq 0 ]; then
 		echo -e "There are $restarts reboot events in this sar file, now showing number $(($selected+1))\n"
-		awk     'BEGIN { triggered=0; if("'$sysall'" == 1) sysall=1;else sysall=0; selecter='"$selected"'; syssub=0; upperLim='"${time1[$selected]}"'; lowerLim='"$time2"'; if(length(lowerLim)<2) lowerLim="0"lowerLim}
+		awk     'BEGIN { triggered=0; headerprinted = 0; if("'$sysall'" == 1) sysall=1;else sysall=0; selecter='"$selected"'; syssub=0; upperLim='"${time1[$selected]}"'; lowerLim='"$time2"'; if(length(lowerLim)<2) lowerLim="0"lowerLim}
 			/RESTART/ {
 				if(triggered==selecter) {
 					print
@@ -147,6 +224,7 @@ case $runmode in
 						}
 						if(syssub==1 && substr($1,0,2) <= upperLim && substr($1,0,2) >= lowerLim && $0~/all/ || $0~/Average|^$/ && $0~/all/) {
 							print
+							headerprinted=0
 						}
 						else if(syssub==1 && $0~/^$/) {
 							syssub=0
@@ -155,7 +233,7 @@ case $runmode in
 						else if(syssub==0) {
 							if(substr($1,0,2) <= upperLim && substr($1,0,2) >= lowerLim)
 								print
-							else if($0~/kbmemfree|ldavg|^$|Average:/)
+							else if($0~/kbmemfree|ldavg|^$|Average:/ && headerprinted == 0)
 								print
 						}
 					}
@@ -174,7 +252,7 @@ case $runmode in
 						else if(syssub==0) {
 							if(substr($1,0,2) <= upperLim && substr($1,0,2) >= lowerLim)
 								print
-							else if($0~/kbmemfree|ldavg|^$/ || 0~/Average:/)
+							else if(($0~/kbmemfree|ldavg|^$/ || 0~/Average:/) && (headerprinted == 0))
 								print
 						}	
 					}

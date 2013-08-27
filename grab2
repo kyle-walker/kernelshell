@@ -13,6 +13,5 @@ else
 
         getattachments
         setupsos
-	pwd
 fi
                
