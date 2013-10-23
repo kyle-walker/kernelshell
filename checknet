@@ -50,24 +50,39 @@ case "$1" in
 		done
 ;;
 -tcpstat) output="Sosreport:\tDropped-recv-pkts\tTotal-recv-pkts\tPercentage-drop\n"
-		for i in `ls -d */`
-		do
-			if [ -f $i/ifconfig ]
-			then 
-				output=$output" "$i" "
-				let x=`awk 'BEGIN {sum=0} /buffer/ {sum+=$1} END {print sum}' $i/sos_commands/networking/netstat_-s`
-				let y=`awk 'BEGIN {pkts=0} /^eth|^em|^p[0-9]/,/^$/ {if($0~/RX packets/) pkts+=substr($2,9)} END {print pkts}' $i/ifconfig`
-				output=$output$x" "$y" "
-				if [ $y -ne 0 ]
-				then
-					output=$output$(echo "scale=3;$x/$y" | bc)
-				else
-					output=$output"0"
+		if [ ! -f ifconfig ];
+		then
+			for i in `ls -d */`
+			do
+				if [ -f $i/ifconfig ]
+				then 
+					output=$output" "$i" "
+					let x=`awk 'BEGIN {sum=0} /buffer/ {sum+=$1} END {print sum}' $i/sos_commands/networking/netstat_-s`
+					let y=`awk 'BEGIN {pkts=0} /^eth|^em|^p[0-9]/,/^$/ {if($0~/RX packets/) pkts+=substr($2,9)} END {print pkts}' $i/ifconfig`
+					output=$output$x" "$y" "
+					if [ $y -ne 0 ]
+					then
+						output=$output$(echo "scale=3;$x/$y" | bc)
+					else
+						output=$output"0"
+					fi
 				fi
-			fi
-			output=$output"\n"
-		done
-		echo -e $output | column -t 
+				output=$output"\n"
+			done
+			echo -e $output | column -t 
+		else
+                        let x=`awk 'BEGIN {sum=0} /buffer/ {sum+=$1} END {print sum}' sos_commands/networking/netstat_-s`
+                        let y=`awk 'BEGIN {pkts=0} /^eth|^em|^p[0-9]/,/^$/ {if($0~/RX packets/) pkts+=substr($2,9)} END {print pkts}' ifconfig`
+                        output=$output$x" "$y" "
+                        if [ $y -ne 0 ]
+                        then
+                                output=$output$(echo "scale=3;$x/$y" | bc)
+                        else
+                                output=$output"0"
+                        fi
+                        echo -e $output | column -t
+
+		fi
 ;;
 -ifup) awk 'BEGIN {printer=0; buffer=""} /^eth|^bond|^em|^p[0-9]/,/^$/ {buffer=buffer"\n"$0; if($0~/^[ \t]*UP/) printer=1; if($0~/^$/ && printer>0) {print buffer; buffer=""; printer=0} else if($0~/^$/) {buffer="";printer=0}}' ifconfig
 ;;
