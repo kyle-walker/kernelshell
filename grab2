@@ -8,8 +8,13 @@ if [ $# -eq 0 ]; then
 elif [ $HOME == "/root" ]; then
 	echo "WARNING: Running as root, aborting!"
 else
-        mkdir /cases/$1 -p
-        cd /cases/$1
+        if [ -d ~/sosreports/ ]; then 
+		mkdir ~/sosreports/$1 -p; cd ~/sosreports/$1
+	elif [ -d /cases/ ]; then 
+		mkdir /cases/$1 -p; cd /cases/$1
+	elif [ -d ~/cases/ ]; then 
+		mkdir ~/cases/$i -p; cd ~/cases/$1
+	fi
 
         getattachments
         setupsos
