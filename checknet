@@ -9,7 +9,7 @@ if [ $# == 0 ]; then
 			echo $i - `grep driver sos_commands/networking/ethtool_-i_$i `
 			cat sos_commands/networking/ethtool_-S_$i | awk '/error|drop|discard|collision/ {if($NF != 0 && $0!~/address.*drop|address_match/) print $0}' 
 		else 
-			echo "No stats available in sosreport"
+			echo -e "$i\nNo stats available in sosreport"
 		fi
 	done
 fi
