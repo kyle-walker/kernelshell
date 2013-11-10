@@ -75,7 +75,7 @@ case "$1" in
 				then 
 					output=$output" "$i" "
 					let x=`awk 'BEGIN {sum=0} /buffer/ {sum+=$1} END {print sum}' $i/sos_commands/networking/netstat_-s`
-					let y=`awk 'BEGIN {pkts=0} /^eth|^em|^p[0-9]/,/^$/ {if($0~/RX packets/) pkts+=substr($2,9)} END {print pkts}' $i/ifconfig`
+					let y=`awk 'BEGIN {pkts=0} /total packets received/ {pkts=$1} END {print pkts}' $i/sos_commands/networking/netstat_-s`
 					output=$output$x" "$y" "
 					if [ $y -ne 0 ]
 					then
@@ -88,8 +88,9 @@ case "$1" in
 			done
 			echo -e $output | column -t 
 		else
+			output=$output" "${PWD##*/}" "
                         let x=`awk 'BEGIN {sum=0} /buffer/ {sum+=$1} END {print sum}' sos_commands/networking/netstat_-s`
-                        let y=`awk 'BEGIN {pkts=0} /^eth|^em|^p[0-9]/,/^$/ {if($0~/RX packets/) pkts+=substr($2,9)} END {print pkts}' ifconfig`
+			let y=`awk 'BEGIN {pkts=0} /total packets received/ {pkts=$1} END {print pkts}' sos_commands/networking/netstat_-s`
                         output=$output$x" "$y" "
                         if [ $y -ne 0 ]
                         then
