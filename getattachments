@@ -133,11 +133,11 @@ def download(attachment):
   # grabber.urlgrab(uri, attachment[0])
   subprocess.call(['wget', '-nv', '--http-user='+option('username', False), '--http-passwd='+option('password', False), attachment[1], '-O', attachment[3]])
   # mtime now provided directly from the API in a new format 
-  import time
-  mtime = time.strptime(attachment[2], "%Y-%m-%d %H:%M:%S")
-  mtime = int(str(time.mktime(mtime))[:10])
+  #import time
+  #mtime = time.strptime(attachment[2], "%Y-%m-%d %H:%M:%S")
+  #mtime = int(str(time.mktime(mtime))[:10])
   # utime(file, (atime, mtime)) -> use the mtime for both
-  utime(attachment[3], (mtime, mtime))
+  #utime(attachment[3], (mtime, mtime))
 
 def getattachments(ticket, files_requested):
   print 'ticket %s:' % ticket
