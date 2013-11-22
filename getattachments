@@ -38,6 +38,7 @@ import httplib
 import string
 import base64
 import subprocess
+import sys
 
 from os import path, getcwd, utime
 #from urlgrabber.grabber import URLGrabber
@@ -55,7 +56,8 @@ def option(name, encode = True):
   try:
     opt = cfg.get('strata', name)
   except Exception:
-    raise Error('Please review your config (see source code)')
+    print 'Please review your config (see source code)'
+    sys.exit(1)
   else:
     if encode:
       opt = quote(opt)
