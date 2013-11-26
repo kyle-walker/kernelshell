@@ -31,7 +31,9 @@ do
 	if [ ! -d $PWD/archive ]; then
 		mkdir $PWD/archive
 	fi
-	mv $i $PWD/archive/$i
+	#mv $i $PWD/archive/$i
+	touch $PWD/archive/$i
+	rm -f $i
 done
 for i in `ls -d */`; 
 	do 
