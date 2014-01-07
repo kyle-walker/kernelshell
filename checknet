@@ -79,7 +79,7 @@ case "$1" in
 					output=$output$x" "$y" "
 					if [ $y -ne 0 ]
 					then
-						output=$output$(echo "scale=3;$x/$y" | bc)
+						output=$output$(echo "scale=3;($x/$y)*100" | bc)
 					else
 						output=$output"0"
 					fi
@@ -94,7 +94,7 @@ case "$1" in
                         output=$output$x" "$y" "
                         if [ $y -ne 0 ]
                         then
-                                output=$output$(echo "scale=3;$x/$y" | bc)
+                                output=$output$(echo "scale=3;($x/$y)*100" | bc)
                         else
                                 output=$output"0"
                         fi
