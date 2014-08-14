@@ -45,6 +45,7 @@ from os import path, getcwd, utime
 from sys import stderr, argv, exit
 from urllib import quote
 from datetime import datetime
+from multiprocessing import Pool
 
 cfg = ConfigParser.ConfigParser()
 cfg.read(path.expanduser('~/.config/strata.cfg'))
@@ -82,6 +83,7 @@ def print_attachment(attachment):
 def process_attachments(attachments, files_requested):
   downloads = []
   already_downloaded = []
+  p = Pool(5)
 
   for attachment in attachments:
     if sosreport_re.search(attachment[0]):
@@ -122,11 +124,11 @@ def process_attachments(attachments, files_requested):
     l = [a for a in downloads if a[0] in files_requested]
     print "  to download:"
     map(print_attachment, l)
-    map(download, l)
+    p.map(download, l)
   elif len(downloads):
     print "  to download:"
     map(print_attachment, downloads)
-    map(download, downloads)
+    p.map(download, downloads)
   else:
     print "  everything is already downloaded:"
 
@@ -134,6 +136,7 @@ def download(attachment):
   # uri = re.sub(r'(https?://)', r"\1%s@" % (option('username')+':'+option('password')), attachment[1])
   # grabber.urlgrab(uri, attachment[0])
   subprocess.call(['wget', '-nv', '--http-user='+option('username', False), '--http-passwd='+option('password', False), attachment[1], '-O', attachment[3]])
+#  subprocess.call(['wget', '--http-user='+option('username', False), '--http-passwd='+option('password', False), attachment[1], '-O', attachment[3]])
   # mtime now provided directly from the API in a new format 
   #import time
   #mtime = time.strptime(attachment[2], "%Y-%m-%d %H:%M:%S")
