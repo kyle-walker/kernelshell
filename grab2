@@ -13,7 +13,7 @@ else
 	elif [ -d /cases/ ]; then 
 		mkdir /cases/$1 -p; cd /cases/$1
 	elif [ -d ~/cases/ ]; then 
-		mkdir ~/cases/$i -p; cd ~/cases/$1
+		mkdir ~/cases/$1 -p; cd ~/cases/$1
 	fi
 
         getattachments
