@@ -1,0 +1,143 @@
+#!/usr/bin/python
+__author__ = 'Kyle Walker'
+__description__ = 'Monitor the netstat -s output over time and determine the delta'
+
+import pdb
+import os
+import argparse
+from time import sleep
+from subprocess import Popen, PIPE
+
+class netstatGrab:
+    def __init__(self):
+        self.current = []
+
+    def getCurrent(self):
+        netstatSub = Popen(["netstat", "-s"], stdout=PIPE)
+        (output, err) = netstatSub.communicate()
+
+        exit_code = netstatSub.wait()
+        return output.split("\n")
+
+    def getDelta(self, inputList):
+        outputList = []
+        netstatNow = []
+        indexer = 0
+
+        netstatSub = Popen(["netstat", "-s"], stdout=PIPE)
+        (output, err) = netstatSub.communicate()
+        netstatNow = output.split("\n")
+
+        try:
+            for entry in inputList:
+                if len(entry):
+                    if entry[-1] is ":":
+                        outputList.append(" ".rjust(18) + entry)
+                        indexer = indexer + 1
+                    else:
+                        if entry[-1].isdigit():
+                            aligned = "Right"
+                            difference = int(netstatNow[indexer].lstrip(" ").split(" ")[-1]) - int(entry.lstrip(" ").split(" ")[-1])
+                            outputList.append(str(difference).rjust(15) + " - " + netstatNow[indexer])
+                        elif entry.lstrip(" ")[0].isdigit():
+                            aligned = "Left"
+                            difference = int(netstatNow[indexer].lstrip(" ").split(" ")[0]) - int(entry.lstrip(" ").split(" ")[0])
+                            outputList.append(str(difference).rjust(15) + " - " + netstatNow[indexer])
+                        else:
+                            aligned = "Other"
+                            tempIndex = 0
+                            entryList = entry.strip(" ").split(" ")
+                            for entryIndex in entryList:
+                                if entryList[tempIndex].isdigit():
+                                    difference = int(netstatNow[indexer].strip(" ").split(" ")[tempIndex]) - int(entryIndex)
+                                    outputList.append(str(difference).rjust(15) + " - " + netstatNow[indexer])
+                                    break
+                                else:
+                                    tempIndex = tempIndex + 1
+                        indexer = indexer + 1
+        except Exception:
+            pdb.set_trace()
+
+        return outputList
+
+    def deltaSaved(self):
+        if os.path.exists("/tmp/netstat.tmp"):
+            print "Using previously captured netstat -s output"
+
+def check_args(args, savedState):
+    if args.interval == 0:
+        header = "Not refreshing - "
+    else:
+        header = "Refresh interval " + str(args.interval) + " seconds - "
+    
+    if args.clear_existing_snap:
+        try:
+            os.remove("/tmp/netstat.tmp")
+        except Exception:
+            pass
+
+    if args.use_stored:
+        if os.path.exists("/tmp/netstat.tmp"):
+            header = header + "Using previously captured netstat -s output from /tmp/netstat.tmp"
+    else:
+        header = header + "Not using previously captured netstat -s output. No /tmp/netstat.tmp file found, creating a new one."
+        saveFile = open("/tmp/netstat.tmp", 'w+')
+        for line in savedState:
+            saveFile.write("%s\n" % line)
+        saveFile.close()
+
+    if args.omit_zeros:
+        header = header + " - Omitting unchanged values"
+
+    return header
+
+def main(args):
+    x = 0
+    savedState = []
+    netstatOutput = netstatGrab()
+    if not args.use_stored:
+        savedState = netstatOutput.getCurrent()
+    else:
+        if os.path.exists("/tmp/netstat.tmp"):
+            for line in open("/tmp/netstat.tmp").readlines():
+                savedState.append(line.rstrip("\n"))
+        else:
+            savedState = netstatOutput.getCurrent()
+
+    headerMessage = check_args(args, savedState)
+
+    if args.interval != 0:
+        while not x:
+            os.system('clear')
+            print headerMessage
+            for line in netstatOutput.getDelta(savedState):
+                if args.omit_zeros:
+                    if line.lstrip(" ").split(" ")[0].isdigit():
+                        if int(line.lstrip(" ").split(" ")[0]) > 0:
+                            print line
+                    else:
+                        print line
+                else:
+                    print line
+            sleep(args.interval)
+    else:
+        print headerMessage
+        for line in netstatOutput.getDelta(savedState):
+            if args.omit_zeros:
+                if line.lstrip(" ").split(" ")[0].isdigit():
+                    if int(line.lstrip(" ").split(" ")[0]) > 0:
+                        print line
+                else:
+                    print line
+            else:
+                print line
+        
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='Monitor the output of netstat -s over time and determine the delta between two datapoints')
+    parser.add_argument('-i', '--interval', default='1', help='Set the interval when the output refreshes. 0 disables refresh', type=int)
+    parser.add_argument('-s', '--use-stored', help='Use a previously saved netstat state within /tmp/netstat.', action="store_true")
+    parser.add_argument('-o', '--omit-zeros', help='Do not show entries that there is no difference between the current value and the stored value.', action="store_true")
+    parser.add_argument('-c', '--clear-existing-snap', help='Delete any /tmp/netstat.tmp file found and begin fresh.', action="store_true")
+    args = parser.parse_args()
+    main(args)
