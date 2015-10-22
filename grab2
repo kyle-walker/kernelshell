@@ -16,7 +16,11 @@ else
 		mkdir ~/cases/$1 -p; cd ~/cases/$1
 	fi
 
-        getattachments
-        setupsos
+        if command -v getattachments 2>/dev/null; then
+		getattachments;
+        	setupsos
+	else
+		echo "ERROR: No getattachments found. Please install getattachments first."
+	fi
 fi
                
